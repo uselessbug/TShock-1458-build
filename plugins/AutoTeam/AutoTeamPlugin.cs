@@ -20,25 +20,36 @@ public sealed class AutoTeamPlugin : TerrariaPlugin
     public override string Name => "AutoTeam";
     public override string Author => "uselessbug";
     public override string Description => "Automatically assigns players to a Terraria team after joining.";
-    public override Version Version => new(1, 0, 0);
+    public override Version Version => new(1, 0, 1);
 
     public AutoTeamPlugin(Main game) : base(game)
     {
-        // Run after TShock's own greet handler (TShock uses Order = 0).
+        // TShock uses Order = 0. Hook priority defaults to plugin Order and higher
+        // priorities run first, so -10 keeps our greet handler after TShock's.
         Order = -10;
     }
 
     public override void Initialize()
     {
-        LoadConfig();
+        // This plugin itself initializes before TShock because of Order = -10.
+        // Defer config loading until TShock has processed -configpath and initialized SavePath.
+        TShock.Initialized += OnTShockInitialized;
         ServerApi.Hooks.NetGreetPlayer.Register(this, OnGreetPlayer);
     }
 
     protected override void Dispose(bool disposing)
     {
         if (disposing)
+        {
+            TShock.Initialized -= OnTShockInitialized;
             ServerApi.Hooks.NetGreetPlayer.Deregister(this, OnGreetPlayer);
+        }
         base.Dispose(disposing);
+    }
+
+    private void OnTShockInitialized()
+    {
+        LoadConfig();
     }
 
     private void LoadConfig()
@@ -57,6 +68,8 @@ public sealed class AutoTeamPlugin : TerrariaPlugin
                 TShock.Log.ConsoleWarn($"[AutoTeam] Invalid team {_config.Team}; using Red team (1).");
                 _config.Team = 1;
             }
+
+            TShock.Log.ConsoleInfo($"[AutoTeam] Config loaded from '{ConfigPath}'.");
         }
         catch (Exception ex)
         {
