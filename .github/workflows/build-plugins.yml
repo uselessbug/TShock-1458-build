@@ -43,8 +43,8 @@ jobs:
         with:
           dotnet-version: '9.0.x'
 
-      - name: Build AutoRegister
-        run: dotnet build plugins/AutoRegister/AutoRegister.csproj -c Release -p:TShockRoot="$GITHUB_WORKSPACE/tshock-src"
+      - name: Build QuickRegister
+        run: dotnet build plugins/QuickRegister/QuickRegister.csproj -c Release -p:TShockRoot="$GITHUB_WORKSPACE/tshock-src"
 
       - name: Build AutoTeam
         run: dotnet build plugins/AutoTeam/AutoTeam.csproj -c Release -p:TShockRoot="$GITHUB_WORKSPACE/tshock-src"
@@ -53,15 +53,15 @@ jobs:
         shell: bash
         run: |
           mkdir -p dist
-          cp plugins/AutoRegister/bin/Release/net9.0/AutoRegister.dll dist/
+          cp plugins/QuickRegister/bin/Release/net9.0/QuickRegister.dll dist/
           cp plugins/AutoTeam/bin/Release/net9.0/AutoTeam.dll dist/
           ls -lh dist
 
-      - name: Upload AutoRegister
+      - name: Upload QuickRegister
         uses: actions/upload-artifact@v4
         with:
-          name: AutoRegister
-          path: dist/AutoRegister.dll
+          name: QuickRegister
+          path: dist/QuickRegister.dll
 
       - name: Upload AutoTeam
         uses: actions/upload-artifact@v4
