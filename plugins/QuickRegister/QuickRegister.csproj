@@ -1,0 +1,14 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net9.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <LangVersion>latest</LangVersion>
+    <AssemblyName>QuickRegister</AssemblyName>
+    <RootNamespace>UselessBug.TShockPlugins.QuickRegister</RootNamespace>
+    <TShockRoot Condition="'$(TShockRoot)' == ''">$(MSBuildThisFileDirectory)../../tshock-src</TShockRoot>
+  </PropertyGroup>
+  <ItemGroup>
+    <ProjectReference Include="$(TShockRoot)/TShockAPI/TShockAPI.csproj" />
+  </ItemGroup>
+</Project>
