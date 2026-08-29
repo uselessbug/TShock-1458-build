@@ -1,0 +1,112 @@
+name: Build TShock 1.4.5.8 ARM64
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build-linux-arm64:
+    runs-on: ubuntu-latest
+
+    env:
+      TSHOCK_SHA: 8dfbab5ddab77fc53e66780612f4849b555a58aa
+      TSAPI_SHA: e6f3b40a2cb0d1f3dcc2acbfd1ebff815bade9ce
+      RID: linux-arm64
+
+    steps:
+      - name: Checkout pinned TShock PR build
+        uses: actions/checkout@v4
+        with:
+          repository: Pryaxis/TShock
+          ref: 8dfbab5ddab77fc53e66780612f4849b555a58aa
+          submodules: recursive
+          fetch-depth: 0
+
+      - name: Replace TerrariaServerAPI with pinned TSAPI PR build
+        shell: bash
+        run: |
+          set -euxo pipefail
+          git -C TerrariaServerAPI fetch origin refs/pull/283/head
+          git -C TerrariaServerAPI checkout --detach "$TSAPI_SHA"
+
+          test "$(git rev-parse HEAD)" = "$TSHOCK_SHA"
+          test "$(git -C TerrariaServerAPI rev-parse HEAD)" = "$TSAPI_SHA"
+
+          echo "TShock: $(git rev-parse HEAD)"
+          echo "TSAPI:  $(git -C TerrariaServerAPI rev-parse HEAD)"
+
+      - name: Setup .NET 9
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 9.0.x
+
+      - name: Install build dependencies
+        shell: bash
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y gettext
+
+      - name: Publish installer
+        shell: bash
+        run: |
+          set -euxo pipefail
+          cd TShockInstaller
+          dotnet publish \
+            -r "$RID" \
+            -f net9.0 \
+            -c Release \
+            -p:PublishSingleFile=true \
+            --self-contained
+
+      - name: Publish server
+        shell: bash
+        run: |
+          set -euxo pipefail
+          cd TShockLauncher
+          dotnet publish \
+            -r "$RID" \
+            -f net9.0 \
+            -c Release \
+            -p:PublishSingleFile=true \
+            --no-self-contained
+
+      - name: Assemble artifact
+        shell: bash
+        run: |
+          set -euxo pipefail
+
+          PUBLISH="TShockLauncher/bin/Release/net9.0/$RID/publish"
+          INSTALLER="TShockInstaller/bin/Release/net9.0/$RID/publish"
+
+          chmod +x "$PUBLISH/TShock.Server"
+          cp -a "$INSTALLER"/. "$PUBLISH"/
+
+          mkdir -p artifact
+          cp -a "$PUBLISH"/. artifact/
+
+          cat > artifact/BUILD_INFO.txt <<EOF
+          Unofficial TShock build for Terraria 1.4.5.7/.8
+          TShock PR: https://github.com/Pryaxis/TShock/pull/3301
+          TShock commit: $TSHOCK_SHA
+          TSAPI PR: https://github.com/Pryaxis/TSAPI/pull/283
+          TSAPI commit: $TSAPI_SHA
+          Runtime: $RID
+          Built by: https://github.com/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}
+          EOF
+
+          tar -C artifact -czf TShock-1.4.5.8-linux-arm64.tar.gz .
+          sha256sum TShock-1.4.5.8-linux-arm64.tar.gz | tee TShock-1.4.5.8-linux-arm64.tar.gz.sha256
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: TShock-1.4.5.8-linux-arm64
+          path: |
+            TShock-1.4.5.8-linux-arm64.tar.gz
+            TShock-1.4.5.8-linux-arm64.tar.gz.sha256
+          retention-days: 14
+          if-no-files-found: error
