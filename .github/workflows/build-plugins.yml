@@ -1,0 +1,70 @@
+name: Build TShock Plugins
+
+on:
+  push:
+    branches:
+      - feat/tshock-auto-register-auto-team
+    paths:
+      - 'plugins/**'
+      - '.github/workflows/build-plugins.yml'
+  workflow_dispatch:
+
+jobs:
+  build-plugins:
+    runs-on: ubuntu-latest
+    env:
+      TSHOCK_SHA: 8dfbab5ddab77fc53e66780612f4849b555a58aa
+      TSAPI_SHA: e6f3b40a2cb0d1f3dcc2acbfd1ebff815bade9ce
+
+    steps:
+      - name: Checkout plugin branch
+        uses: actions/checkout@v4
+
+      - name: Checkout pinned TShock source
+        uses: actions/checkout@v4
+        with:
+          repository: Pryaxis/TShock
+          ref: 8dfbab5ddab77fc53e66780612f4849b555a58aa
+          submodules: recursive
+          fetch-depth: 0
+          path: tshock-src
+
+      - name: Replace TerrariaServerAPI with pinned TSAPI PR build
+        shell: bash
+        run: |
+          set -euxo pipefail
+          git -C tshock-src/TerrariaServerAPI fetch origin refs/pull/283/head
+          git -C tshock-src/TerrariaServerAPI checkout --detach "$TSAPI_SHA"
+          test "$(git -C tshock-src rev-parse HEAD)" = "$TSHOCK_SHA"
+          test "$(git -C tshock-src/TerrariaServerAPI rev-parse HEAD)" = "$TSAPI_SHA"
+
+      - name: Set up .NET 9
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '9.0.x'
+
+      - name: Build AutoRegister
+        run: dotnet build plugins/AutoRegister/AutoRegister.csproj -c Release -p:TShockRoot="$GITHUB_WORKSPACE/tshock-src"
+
+      - name: Build AutoTeam
+        run: dotnet build plugins/AutoTeam/AutoTeam.csproj -c Release -p:TShockRoot="$GITHUB_WORKSPACE/tshock-src"
+
+      - name: Collect DLLs
+        shell: bash
+        run: |
+          mkdir -p dist
+          cp plugins/AutoRegister/bin/Release/net9.0/AutoRegister.dll dist/
+          cp plugins/AutoTeam/bin/Release/net9.0/AutoTeam.dll dist/
+          ls -lh dist
+
+      - name: Upload AutoRegister
+        uses: actions/upload-artifact@v4
+        with:
+          name: AutoRegister
+          path: dist/AutoRegister.dll
+
+      - name: Upload AutoTeam
+        uses: actions/upload-artifact@v4
+        with:
+          name: AutoTeam
+          path: dist/AutoTeam.dll
